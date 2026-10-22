@@ -2,9 +2,11 @@
 """db.py: conexión y consultas de RiderExpress."""
 
 import sqlite3
+from pathlib import Path
 from contextlib import closing
 
-DB_PATH = "delivery.db"
+BASE_DIR = Path(__file__).resolve().parent
+DB_PATH = BASE_DIR / "delivery.db"
 
 
 def get_conn():
@@ -16,29 +18,21 @@ def get_conn():
 
 def init_db():
     with closing(get_conn()) as conn:
-        with open("esquemas.sql", encoding="utf-8") as f:
-            conn.executescript(f.read())
-
-        with open("datos.sql", encoding="utf-8") as f:
-            conn.executescript(f.read())
-
-        with open("rutas.sql", encoding="utf-8") as f:
-            conn.executescript(f.read())
+        for archivo in ("delivery.sql", "rutas.sql"):
+            sql = (BASE_DIR / archivo).read_text(encoding="utf-8")
+            conn.executescript(sql)
 
 
 def obtener_platos():
     with closing(get_conn()) as conn:
         filas = conn.execute(
-            """SELECT p.id_plato, p.nombre,
-                      r.nombre AS restaurante, p.precio
-               FROM platos p
-               JOIN restaurantes r
-               ON p.id_restaurante = r.id_restaurante
-               ORDER BY p.precio DESC"""
+            """SELECT id, nombre, restaurante, precio
+               FROM plato
+               ORDER BY precio DESC"""
         ).fetchall()
 
     return [
-        f"{f['id_plato']}. {f['nombre']} "
+        f"{f['id']}. {f['nombre']} "
         f"({f['restaurante']}) - {f['precio']} €"
         for f in filas
     ]
@@ -48,21 +42,21 @@ def datos_pedido(pedido_id):
     with closing(get_conn()) as conn:
         cliente = conn.execute(
             """SELECT u.nombre, u.barrio
-               FROM pedidos pe
-               JOIN usuarios u
-               ON u.id_usuario = pe.id_usuario
-               WHERE pe.id_pedido = ?""",
+               FROM pedido pe
+               JOIN usuario u
+               ON u.id = pe.usuario_id
+               WHERE pe.id = ?""",
             (pedido_id,)
         ).fetchone()
 
         restaurantes = conn.execute(
             """SELECT DISTINCT r.nombre, r.barrio
-               FROM detalle_pedido dp
-               JOIN platos p
-               ON p.id_plato = dp.id_plato
-               JOIN restaurantes r
-               ON r.id_restaurante = p.id_restaurante
-               WHERE dp.id_pedido = ?""",
+               FROM pedido_plato dp
+               JOIN plato p
+               ON p.id = dp.plato_id
+               JOIN restaurante r
+               ON r.nombre = p.restaurante
+               WHERE dp.pedido_id = ?""",
             (pedido_id,)
         ).fetchall()
 
@@ -72,16 +66,16 @@ def datos_pedido(pedido_id):
 def pedidos_un_restaurante():
     with closing(get_conn()) as conn:
         filas = conn.execute(
-            "SELECT id_pedido FROM pedidos ORDER BY id_pedido"
+            "SELECT id FROM pedido ORDER BY id"
         ).fetchall()
 
     salida = []
 
     for f in filas:
-        pedido_id = f["id_pedido"]
+        pedido_id = f["id"]
         cliente, restaurantes = datos_pedido(pedido_id)
 
-        if len(restaurantes) == 1:
+        if cliente is not None and len(restaurantes) == 1:
             salida.append(
                 (pedido_id, cliente, restaurantes[0])
             )
@@ -92,8 +86,11 @@ def pedidos_un_restaurante():
 def barrio_rider(nombre):
     with closing(get_conn()) as conn:
         fila = conn.execute(
-            "SELECT barrio FROM riders WHERE nombre = ?",
+            "SELECT barrio FROM rider WHERE nombre = ?",
             (nombre,)
         ).fetchone()
+
+    if fila is None:
+        raise ValueError(f"Rider no encontrado: {nombre}")
 
     return fila["barrio"]

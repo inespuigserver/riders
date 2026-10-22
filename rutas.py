@@ -1,36 +1,39 @@
 """rutas.py: el mapa como grafo, Dijkstra con camino y el rider más cercano."""
-import heapq
+import networkx as nx
 from contextlib import closing
 
 from db import barrio_rider, get_conn, pedidos_un_restaurante
 
 
 def cargar_grafo():
-    """{barrio: {vecino: minutos}} a partir de la tabla tramo."""
-    grafo = {}
+    grafo = nx.Graph()
     with closing(get_conn()) as conn:
-        for t in conn.execute("SELECT origen, destino, minutos FROM tramo"):
-            grafo.setdefault(t["origen"], {})[t["destino"]] = t["minutos"]
-            grafo.setdefault(t["destino"], {})[t["origen"]] = t["minutos"]  # ida y vuelta
+        for t in conn.execute(
+            "SELECT origen, destino, minutos FROM tramo"
+        ):
+            grafo.add_edge(
+                t["origen"],
+                t["destino"],
+                weight=t["minutos"]
+            )
     return grafo
 
 
 def dijkstra(grafo, origen):
-    dist = {nodo: float("inf") for nodo in grafo}
-    previo = {origen: None}              # de dónde vengo: para reconstruir la ruta
-    dist[origen] = 0
-    cola = [(0, origen)]
-    cerrados = set()
-    while cola:
-        d, u = heapq.heappop(cola)       # el pivote: el más cercano sin cerrar
-        if u in cerrados:
-            continue
-        cerrados.add(u)
-        for v, peso in grafo[u].items():
-            if d + peso < dist[v]:       # relajar la arista u -> v
-                dist[v] = d + peso
-                previo[v] = u
-                heapq.heappush(cola, (dist[v], v))
+    distancias, rutas = nx.single_source_dijkstra(
+        grafo,
+        origen,
+        weight="weight"
+    )
+    dist = {
+        nodo: distancias.get(nodo, float("inf"))
+        for nodo in grafo
+    }
+    previo = {origen: None}
+
+    for destino, recorrido in rutas.items():
+        if destino != origen:
+            previo[destino] = recorrido[-2]
     return dist, previo
 
 
@@ -94,7 +97,8 @@ def tabla_iteraciones(grafo, origen):
 
         cerrados.add(pivote)
 
-        for vecino, peso in grafo[pivote].items():
+        for vecino, atributos in grafo[pivote].items():
+            peso = atributos["weight"]
             nueva_distancia = dist[pivote] + peso
 
             if vecino not in cerrados:
