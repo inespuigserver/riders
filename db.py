@@ -1,67 +1,99 @@
-"""db.py: conexión, creación de la base de datos y consultas."""
+
+"""db.py: conexión y consultas de RiderExpress."""
+
 import sqlite3
 from contextlib import closing
-from pathlib import Path
 
-AQUI = Path(__file__).parent
-DB_PATH = AQUI / "delivery.db"
+DB_PATH = "delivery.db"
 
 
 def get_conn():
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row            # fila["nombre"] en vez de fila[1]
-    conn.execute("PRAGMA foreign_keys = ON")  # SQLite no comprueba las FK si no se lo pides
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
 def init_db():
-    """Crea delivery.db cargando delivery.sql y después rutas.sql."""
     with closing(get_conn()) as conn:
-        for fichero in ("delivery.sql", "rutas.sql"):
-            conn.executescript((AQUI / fichero).read_text(encoding="utf-8"))
+        with open("esquemas.sql", encoding="utf-8") as f:
+            conn.executescript(f.read())
+
+        with open("datos.sql", encoding="utf-8") as f:
+            conn.executescript(f.read())
+
+        with open("rutas.sql", encoding="utf-8") as f:
+            conn.executescript(f.read())
 
 
 def obtener_platos():
-    """La carta, de más caro a más barato, como lista de textos."""
     with closing(get_conn()) as conn:
         filas = conn.execute(
-            "SELECT id, nombre, restaurante, precio FROM plato ORDER BY precio DESC"
+            """SELECT p.id_plato, p.nombre,
+                      r.nombre AS restaurante, p.precio
+               FROM platos p
+               JOIN restaurantes r
+               ON p.id_restaurante = r.id_restaurante
+               ORDER BY p.precio DESC"""
         ).fetchall()
-    return [f"{f['id']}. {f['nombre']} ({f['restaurante']}) - {f['precio']} €" for f in filas]
+
+    return [
+        f"{f['id_plato']}. {f['nombre']} "
+        f"({f['restaurante']}) - {f['precio']} €"
+        for f in filas
+    ]
 
 
 def datos_pedido(pedido_id):
-    """(cliente, restaurantes) de un pedido. cliente es None si no existe.
-    El refresco ('varios') no cuenta: se recoge donde el resto del pedido."""
     with closing(get_conn()) as conn:
         cliente = conn.execute(
-            "SELECT u.nombre, u.barrio FROM pedido pe "
-            "JOIN usuario u ON u.id = pe.usuario_id WHERE pe.id = ?",
-            (pedido_id,),
+            """SELECT u.nombre, u.barrio
+               FROM pedidos pe
+               JOIN usuarios u
+               ON u.id_usuario = pe.id_usuario
+               WHERE pe.id_pedido = ?""",
+            (pedido_id,)
         ).fetchone()
+
         restaurantes = conn.execute(
-            "SELECT DISTINCT r.nombre, r.barrio FROM pedido_plato pp "
-            "JOIN plato p ON p.id = pp.plato_id "
-            "JOIN restaurante r ON r.nombre = p.restaurante "
-            "WHERE pp.pedido_id = ?",
-            (pedido_id,),
+            """SELECT DISTINCT r.nombre, r.barrio
+               FROM detalle_pedido dp
+               JOIN platos p
+               ON p.id_plato = dp.id_plato
+               JOIN restaurantes r
+               ON r.id_restaurante = p.id_restaurante
+               WHERE dp.id_pedido = ?""",
+            (pedido_id,)
         ).fetchall()
+
     return cliente, restaurantes
 
 
 def pedidos_un_restaurante():
-    """[(pedido_id, cliente, restaurante)] de los pedidos con un solo restaurante."""
     with closing(get_conn()) as conn:
-        ids = [f["id"] for f in conn.execute("SELECT id FROM pedido ORDER BY id")]
+        filas = conn.execute(
+            "SELECT id_pedido FROM pedidos ORDER BY id_pedido"
+        ).fetchall()
+
     salida = []
-    for pedido_id in ids:
+
+    for f in filas:
+        pedido_id = f["id_pedido"]
         cliente, restaurantes = datos_pedido(pedido_id)
+
         if len(restaurantes) == 1:
-            salida.append((pedido_id, cliente, restaurantes[0]))
+            salida.append(
+                (pedido_id, cliente, restaurantes[0])
+            )
+
     return salida
 
 
 def barrio_rider(nombre):
-    """Barrio donde está ahora un rider."""
     with closing(get_conn()) as conn:
-        return conn.execute("SELECT barrio FROM rider WHERE nombre = ?", (nombre,)).fetchone()["barrio"]
+        fila = conn.execute(
+            "SELECT barrio FROM riders WHERE nombre = ?",
+            (nombre,)
+        ).fetchone()
+
+    return fila["barrio"]

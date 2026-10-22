@@ -63,28 +63,45 @@ def tiempo_entrega(grafo, barrio_restaurante, barrio_cliente):
     return rider, m_rider, m_cliente, m_rider + m_cliente, ida + vuelta[1:]
 
 
+
 def tabla_iteraciones(grafo, origen):
-    """Imprime la tabla de Dijkstra como la de clase (-1 = ∞), para compararla con la tuya a mano."""
-    ab = lambda n: n[:2].upper()
-    nodos = [origen] + [n for n in grafo if n != origen]
-    dist = {n: -1 for n in nodos}
-    dist[origen] = 0
-    previo = {origen: None}
+    nodos = list(grafo.keys())
+    dist = {}
+    previo = {}
     cerrados = set()
-    print("iter. " + " ".join(f"{ab(n):>3}" for n in nodos) + "  Pivote")
-    for it in range(len(nodos)):
-        candidatos = [n for n in nodos if n not in cerrados and dist[n] != -1]
-        if not candidatos:
+
+    for nodo in nodos:
+        dist[nodo] = float("inf")
+        previo[nodo] = None
+
+    dist[origen] = 0
+
+    print("Iteracion | Distancias | Pivote")
+
+    for i in range(len(nodos)):
+        pivote = None
+        menor = float("inf")
+
+        for nodo in nodos:
+            if nodo not in cerrados and dist[nodo] < menor:
+                menor = dist[nodo]
+                pivote = nodo
+
+        if pivote is None:
             break
-        pivote = min(candidatos, key=lambda n: dist[n])
-        desde = "inicio" if previo[pivote] is None else ab(previo[pivote])
-        print(f"{it:>5} " + " ".join(f"{dist[n]:>3}" for n in nodos)
-              + f"  {ab(pivote)} (coste {dist[pivote]}) desde {desde}")
+
+        print(i, "|", dist, "|", pivote)
+
         cerrados.add(pivote)
-        for v, peso in grafo[pivote].items():
-            if v not in cerrados and (dist[v] == -1 or dist[pivote] + peso < dist[v]):
-                dist[v] = dist[pivote] + peso
-                previo[v] = pivote
+
+        for vecino, peso in grafo[pivote].items():
+            nueva_distancia = dist[pivote] + peso
+
+            if vecino not in cerrados:
+                if nueva_distancia < dist[vecino]:
+                    dist[vecino] = nueva_distancia
+                    previo[vecino] = pivote
+
 
 
 if __name__ == "__main__":
