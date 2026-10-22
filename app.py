@@ -1,6 +1,3 @@
-
-"""app.py: menú principal de RiderExpress."""
-
 from datetime import date
 import networkx as nx
 

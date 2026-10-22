@@ -1,10 +1,3 @@
--- ============================================================
---  RIDEREXPRESS  ·  app de comida a domicilio  ·  base de datos (SQLite)
---  EDA II · Bases de datos con SQLite
---  Cárgalo con:   sqlite3 delivery.db < delivery.sql
---  o pégalo en https://sqliteonline.com
--- ============================================================
-
 PRAGMA foreign_keys = ON;
 
 DROP TABLE IF EXISTS pedido_plato;
@@ -13,28 +6,28 @@ DROP TABLE IF EXISTS plato;
 DROP TABLE IF EXISTS rider;
 DROP TABLE IF EXISTS usuario;
 
--- Quién pide (los clientes de la app)
+
 CREATE TABLE usuario (
     id     INTEGER PRIMARY KEY,
     nombre TEXT    NOT NULL,
     barrio TEXT    NOT NULL,
-    saldo  INTEGER NOT NULL          -- dinero en el monedero de la app (€)
+    saldo  INTEGER NOT NULL          
 );
 
--- Quién reparte (los empleados)
+
 CREATE TABLE rider (
     id       INTEGER PRIMARY KEY,
     nombre   TEXT NOT NULL,
-    vehiculo TEXT NOT NULL           -- moto, bici, patinete
+    vehiculo TEXT NOT NULL           
 );
 
--- Qué se pide (los productos de la carta)
+
 CREATE TABLE plato (
     id          INTEGER PRIMARY KEY,
     nombre      TEXT    NOT NULL,
     restaurante TEXT    NOT NULL,
-    categoria   TEXT    NOT NULL,    -- hamburguesa, pizza, sushi, kebab, postre, bebida...
-    precio      INTEGER NOT NULL     -- en €
+    categoria   TEXT    NOT NULL,    
+    precio      INTEGER NOT NULL    
 );
 
 -- Cada pedido lo hace UN usuario y lo reparte UN rider
