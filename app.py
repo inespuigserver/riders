@@ -1,7 +1,5 @@
 
 """app.py: menú principal de RiderExpress."""
-
-from datetime import date
 import networkx as nx
 
 from db import DB_PATH, init_db, obtener_platos, datos_pedido
@@ -11,32 +9,38 @@ from turno import planificar_turno
 
 
 def pedir():
+    usuario = int(input("Id del usuario: "))
+    rider = int(input("Id del rider: "))
+
+    lineas = []
+    continuar = "s"
+
+    while continuar == "s":
+        plato = int(input("Id del plato: "))
+        cantidad = int(input("Cantidad: "))
+
+        lineas.append((plato, cantidad))
+
+        continuar = input("¿Quieres añadir otro plato?: ")
+
+    fecha = input("Introduce la fecha (AAAA-MM-DD): ")
+
     try:
-        usuario = int(input("Id del usuario: "))
-        rider = int(input("Id del rider: "))
-
-        texto = input(
-            "Platos (id:cantidad separados por comas, ej. 1:2,7:1): "
-        )
-
-        lineas = [
-            tuple(int(x) for x in par.strip().split(":"))
-            for par in texto.split(",")
-        ]
-
         pedido_id, total = crear_pedido(
-            usuario, rider, lineas, date.today().isoformat()
+            usuario, rider, lineas, fecha
         )
 
-        print(f"Pedido {pedido_id} aceptado: {total} €")
+        print("Pedido aceptado:", pedido_id)
+        print("Total:", total, "€")
 
     except ValueError as e:
-        print(f"Error al crear el pedido: {e}")
+        print("Error al crear el pedido:", e)
 
 
 def asignar(grafo):
     try:
         pedido_id = int(input("Id del pedido: "))
+
     except ValueError:
         print("Debes introducir un número")
         return
@@ -48,37 +52,42 @@ def asignar(grafo):
         return
 
     if len(restaurantes) == 0:
-        print("No se ha encontrado un restaurante para el pedido")
+        print("No se ha encontrado un restaurante")
         return
 
     if len(restaurantes) > 1:
-        print("Pedido de varios restaurantes: pendiente de resolver")
+        print("Pedido de varios restaurantes: pendiente")
         return
 
-    rest = restaurantes[0]
+    restaurante = restaurantes[0]
 
     try:
         rider, m_rider, m_cliente, total, recorrido = tiempo_entrega(
             grafo,
-            rest["barrio"],
+            restaurante["barrio"],
             cliente["barrio"]
         )
 
-        print(f"Rider asignado: {rider}")
-        print(f"Tiempo hasta restaurante: {m_rider} min")
-        print(f"Tiempo hasta cliente: {m_cliente} min")
-        print(f"Tiempo total: {total} min")
-        print(f"Ruta: {' → '.join(recorrido)}")
+        print("Rider asignado:", rider)
+        print("Tiempo hasta restaurante:", m_rider, "min")
+        print("Tiempo hasta cliente:", m_cliente, "min")
+        print("Tiempo total:", total, "min")
+        print("Ruta:")
+        for barrio in recorrido:
+            print(barrio)
 
     except (ValueError, KeyError, nx.NetworkXException) as e:
-        print(f"No se pudo calcular el reparto: {e}")
+        print("No se pudo calcular el reparto:", e)
 
 
 def ruta(grafo):
-    print("Barrios:", ", ".join(sorted(grafo)))
+    print("Barrios disponibles:")
 
-    origen = input("Origen: ").strip()
-    destino = input("Destino: ").strip()
+    for barrio in grafo:
+        print(barrio)
+
+    origen = input("Origen: ")
+    destino = input("Destino: ")
 
     if origen not in grafo or destino not in grafo:
         print("Barrio desconocido")
@@ -92,38 +101,54 @@ def ruta(grafo):
 
     recorrido = camino(previo, destino)
 
-    print(f"Distancia: {dist[destino]} min")
-    print(f"Ruta: {' → '.join(recorrido)}")
+    print("Distancia:", dist[destino], "min")
+    print("Ruta:")
+    for barrio in recorrido:
+        print(barrio)
 
 
 def main():
+
     if not DB_PATH.exists():
         init_db()
 
     grafo = cargar_grafo()
 
-    opciones = {
-        "1": ("Ver la carta", lambda: print(*obtener_platos(), sep="\n")),
-        "2": ("Hacer un pedido", pedir),
-        "3": ("Rider para un pedido", lambda: asignar(grafo)),
-        "4": ("Ruta entre dos barrios", lambda: ruta(grafo)),
-        "5": ("Planificar el turno", lambda: print(planificar_turno())),
-    }
+    opcion = ""
 
-    while True:
+    while opcion != "6":
+
         print("\n--- RIDEREXPRESS ---")
+        print("1. Ver la carta")
+        print("2. Hacer un pedido")
+        print("3. Rider para un pedido")
+        print("4. Ruta entre dos barrios")
+        print("5. Planificar el turno")
+        print("6. Salir")
 
-        for numero, (descripcion, _) in opciones.items():
-            print(f"{numero}. {descripcion}")
+        opcion = input("Elige una opción: ")
 
-        eleccion = input("Opción (q para salir): ").strip()
+        if opcion == "1":
+            platos = obtener_platos()
 
-        if eleccion.lower() == "q":
+            for plato in platos:
+                print(plato)
+
+        elif opcion == "2":
+            pedir()
+
+        elif opcion == "3":
+            asignar(grafo)
+
+        elif opcion == "4":
+            ruta(grafo)
+
+        elif opcion == "5":
+            print(planificar_turno())
+
+        elif opcion == "6":
             print("Saliendo del programa...")
-            break
 
-        if eleccion in opciones:
-            opciones[eleccion][1]()
         else:
             print("Opción no válida")
 
