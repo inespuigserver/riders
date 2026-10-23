@@ -1,39 +1,57 @@
 """rutas.py: el mapa como grafo, Dijkstra con camino y el rider más cercano."""
-import networkx as nx
+import heapq
 from contextlib import closing
 
 from db import barrio_rider, get_conn, pedidos_un_restaurante
 
 
 def cargar_grafo():
-    grafo = nx.Graph()
+    grafo = {}
+
     with closing(get_conn()) as conn:
-        for t in conn.execute(
+        for tramo in conn.execute(
             "SELECT origen, destino, minutos FROM tramo"
         ):
-            grafo.add_edge(
-                t["origen"],
-                t["destino"],
-                weight=t["minutos"]
-            )
+            origen = tramo["origen"]
+            destino = tramo["destino"]
+            minutos = tramo["minutos"]
+
+            grafo.setdefault(origen, {})[destino] = minutos
+            grafo.setdefault(destino, {})[origen] = minutos
+
     return grafo
 
 
 def dijkstra(grafo, origen):
-    distancias, rutas = nx.single_source_dijkstra(
-        grafo,
-        origen,
-        weight="weight"
-    )
-    dist = {
-        nodo: distancias.get(nodo, float("inf"))
-        for nodo in grafo
-    }
+    if origen not in grafo:
+        raise ValueError("Barrio de origen desconocido")
+
+    dist = {nodo: float("inf") for nodo in grafo}
     previo = {origen: None}
 
-    for destino, recorrido in rutas.items():
-        if destino != origen:
-            previo[destino] = recorrido[-2]
+    dist[origen] = 0
+    cola = [(0, origen)]
+    cerrados = set()
+
+    while cola:
+        distancia, actual = heapq.heappop(cola)
+
+        if actual in cerrados:
+            continue
+
+        cerrados.add(actual)
+
+        for vecino, peso in grafo[actual].items():
+            nueva_distancia = distancia + peso
+
+            if nueva_distancia < dist[vecino]:
+                dist[vecino] = nueva_distancia
+                previo[vecino] = actual
+
+                heapq.heappush(
+                    cola, (nueva_distancia, vecino)
+                )
+
     return dist, previo
 
 
@@ -93,12 +111,13 @@ def tabla_iteraciones(grafo, origen):
         if pivote is None:
             break
 
-        print(i, "|", dist, "|", pivote)
+        distancias = {nodo: -1 if dist[nodo] == float("inf") else dist[nodo] for nodo in nodos}
+
+        print(i, "|", distancias, "|", pivote)
 
         cerrados.add(pivote)
 
-        for vecino, atributos in grafo[pivote].items():
-            peso = atributos["weight"]
+        for vecino, peso in grafo[pivote].items():
             nueva_distancia = dist[pivote] + peso
 
             if vecino not in cerrados:

@@ -1,12 +1,9 @@
-from datetime import date
-
 """app.py: menú principal de RiderExpress."""
-import networkx as nx
-
 from db import DB_PATH, init_db, obtener_platos, datos_pedido
 from pedidos import crear_pedido
 from rutas import cargar_grafo, dijkstra, camino, tiempo_entrega
 from turno import planificar_turno
+from datetime import date
 
 
 def pedir():
@@ -69,7 +66,7 @@ def asignar(grafo):
             cliente["barrio"]
         )
 
-        print("Rider asignado:", rider)
+        print("Rider recomendado:", rider)
         print("Tiempo hasta restaurante:", m_rider, "min")
         print("Tiempo hasta cliente:", m_cliente, "min")
         print("Tiempo total:", total, "min")
@@ -77,7 +74,7 @@ def asignar(grafo):
         for barrio in recorrido:
             print(barrio)
 
-    except (ValueError, KeyError, nx.NetworkXException) as e:
+    except (ValueError, KeyError) as e:
         print("No se pudo calcular el reparto:", e)
 
 
