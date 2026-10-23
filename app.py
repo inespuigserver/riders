@@ -153,4 +153,7 @@ def main():
         else:
             print("Opción no válida")
 
-main()
+
+if __name__ == "__main__":
+    main()
+    
