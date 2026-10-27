@@ -127,6 +127,108 @@ def tabla_iteraciones(grafo, origen):
 
 
 
+def bellman_ford(grafo, origen):
+    if origen not in grafo:
+        raise ValueError("Barrio de origen desconocido")
+
+    dist = {nodo: float("inf") for nodo in grafo}
+    previo = {origen: None}
+
+    dist[origen] = 0
+
+    # Relajar las aristas V-1 veces
+    for i in range(len(grafo) - 1):
+        cambiado = False
+
+        for actual in grafo:
+            if dist[actual] == float("inf"):
+                continue
+
+            for vecino, peso in grafo[actual].items():
+                nueva_distancia = dist[actual] + peso
+
+                if nueva_distancia < dist[vecino]:
+                    dist[vecino] = nueva_distancia
+                    previo[vecino] = actual
+                    cambiado = True
+
+        if not cambiado:
+            break
+
+    # Comprobar ciclos negativos
+    for actual in grafo:
+        if dist[actual] == float("inf"):
+            continue
+
+        for vecino, peso in grafo[actual].items():
+            if dist[actual] + peso < dist[vecino]:
+                raise ValueError("Ciclo negativo detectado")
+
+    return dist, previo
+
+
+def floyd_warshall(grafo):
+    nodos = list(grafo)
+    infinito = float("inf")
+
+    dist = {}
+    siguiente = {}
+
+    # Inicializar distancias
+    for i in nodos:
+        dist[i] = {}
+        siguiente[i] = {}
+
+        for j in nodos:
+            if i == j:
+                dist[i][j] = 0
+                siguiente[i][j] = j
+
+            elif j in grafo[i]:
+                dist[i][j] = grafo[i][j]
+                siguiente[i][j] = j
+
+            else:
+                dist[i][j] = infinito
+                siguiente[i][j] = None
+
+    # Buscar caminos mínimos
+    for k in nodos:
+        for i in nodos:
+            for j in nodos:
+                nueva = dist[i][k] + dist[k][j]
+
+                if nueva < dist[i][j]:
+                    dist[i][j] = nueva
+                    siguiente[i][j] = siguiente[i][k]
+
+    # Detectar ciclos negativos
+    for nodo in nodos:
+        if dist[nodo][nodo] < 0:
+            raise ValueError("Ciclo negativo detectado")
+
+    return dist, siguiente
+
+
+def camino_floyd(siguiente, origen, destino):
+    if origen not in siguiente:
+        raise ValueError("Barrio de origen desconocido")
+
+    if destino not in siguiente[origen]:
+        raise ValueError("Barrio de destino desconocido")
+
+    if siguiente[origen][destino] is None:
+        return []
+
+    ruta = [origen]
+
+    while origen != destino:
+        origen = siguiente[origen][destino]
+        ruta.append(origen)
+
+    return ruta
+
+
 if __name__ == "__main__":
     grafo = cargar_grafo()
     print("Vecinos de Chamberí:", grafo["Chamberí"])

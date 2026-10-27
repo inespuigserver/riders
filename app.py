@@ -110,50 +110,44 @@ def ruta(grafo):
         print(barrio)
 
 
-def main():
 
+def main():
     if not DB_PATH.exists():
         init_db()
 
     grafo = cargar_grafo()
 
-    opcion = ""
+    opciones = {
+        "1": ("Ver la carta",
+              lambda: print(*obtener_platos(), sep="\n")),
+        "2": ("Hacer un pedido", pedir),
+        "3": ("Rider para un pedido",
+              lambda: asignar(grafo)),
+        "4": ("Ruta entre dos barrios",
+              lambda: ruta(grafo)),
+        "5": ("Planificar el turno",
+              lambda: print(planificar_turno()))
+    }
 
-    while opcion != "6":
-
+    while True:
         print("\n--- RIDEREXPRESS ---")
-        print("1. Ver la carta")
-        print("2. Hacer un pedido")
-        print("3. Rider para un pedido")
-        print("4. Ruta entre dos barrios")
-        print("5. Planificar el turno")
-        print("6. Salir")
 
-        opcion = input("Elige una opción: ")
+        for numero, (descripcion, funcion) in opciones.items():
+            print(numero, descripcion)
 
-        if opcion == "1":
-            platos = obtener_platos()
+        print("q. Salir")
 
-            for plato in platos:
-                print(plato)
+        opcion = input("Elige una opción: ").strip().lower()
 
-        elif opcion == "2":
-            pedir()
-
-        elif opcion == "3":
-            asignar(grafo)
-
-        elif opcion == "4":
-            ruta(grafo)
-
-        elif opcion == "5":
-            print(planificar_turno())
-
-        elif opcion == "6":
+        if opcion == "q":
             print("Saliendo del programa...")
+            break
 
+        if opcion in opciones:
+            opciones[opcion][1]()
         else:
             print("Opción no válida")
+
 
 
 if __name__ == "__main__":
