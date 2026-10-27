@@ -6,24 +6,28 @@ from turno import planificar_turno
 from datetime import date
 
 
+
 def pedir():
-    usuario = int(input("Id del usuario: "))
-    rider = int(input("Id del rider: "))
-
-    lineas = []
-    continuar = "s"
-
-    while continuar == "s":
-        plato = int(input("Id del plato: "))
-        cantidad = int(input("Cantidad: "))
-
-        lineas.append((plato, cantidad))
-
-        continuar = input("¿Quieres añadir otro plato?: ")
-
-    fecha = input("Introduce la fecha (AAAA-MM-DD): ")
-
     try:
+        usuario = int(input("Id del usuario: "))
+        rider = int(input("Id del rider: "))
+
+        lineas = []
+        continuar = "s"
+
+        while continuar == "s":
+            plato = int(input("Id del plato: "))
+            cantidad = int(input("Cantidad: "))
+
+            lineas.append((plato, cantidad))
+
+            continuar = input(
+                "¿Quieres añadir otro plato? (s/n): "
+            ).strip().lower()
+
+        fecha = input("Introduce la fecha (AAAA-MM-DD): ")
+        date.fromisoformat(fecha)
+
         pedido_id, total = crear_pedido(
             usuario, rider, lineas, fecha
         )
@@ -33,6 +37,7 @@ def pedir():
 
     except ValueError as e:
         print("Error al crear el pedido:", e)
+
 
 
 def asignar(grafo):
