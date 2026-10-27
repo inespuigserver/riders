@@ -1,6 +1,3 @@
-
-"""db.py: conexión y consultas de RiderExpress."""
-
 import sqlite3
 from pathlib import Path
 from contextlib import closing

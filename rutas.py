@@ -1,39 +1,57 @@
 """rutas.py: el mapa como grafo, Dijkstra con camino y el rider más cercano."""
-import networkx as nx
+import heapq
 from contextlib import closing
 
 from db import barrio_rider, get_conn, pedidos_un_restaurante
 
 
 def cargar_grafo():
-    grafo = nx.Graph()
+    grafo = {}
+
     with closing(get_conn()) as conn:
-        for t in conn.execute(
+        for tramo in conn.execute(
             "SELECT origen, destino, minutos FROM tramo"
         ):
-            grafo.add_edge(
-                t["origen"],
-                t["destino"],
-                weight=t["minutos"]
-            )
+            origen = tramo["origen"]
+            destino = tramo["destino"]
+            minutos = tramo["minutos"]
+
+            grafo.setdefault(origen, {})[destino] = minutos
+            grafo.setdefault(destino, {})[origen] = minutos
+
     return grafo
 
 
 def dijkstra(grafo, origen):
-    distancias, rutas = nx.single_source_dijkstra(
-        grafo,
-        origen,
-        weight="weight"
-    )
-    dist = {
-        nodo: distancias.get(nodo, float("inf"))
-        for nodo in grafo
-    }
+    if origen not in grafo:
+        raise ValueError("Barrio de origen desconocido")
+
+    dist = {nodo: float("inf") for nodo in grafo}
     previo = {origen: None}
 
-    for destino, recorrido in rutas.items():
-        if destino != origen:
-            previo[destino] = recorrido[-2]
+    dist[origen] = 0
+    cola = [(0, origen)]
+    cerrados = set()
+
+    while cola:
+        distancia, actual = heapq.heappop(cola)
+
+        if actual in cerrados:
+            continue
+
+        cerrados.add(actual)
+
+        for vecino, peso in grafo[actual].items():
+            nueva_distancia = distancia + peso
+
+            if nueva_distancia < dist[vecino]:
+                dist[vecino] = nueva_distancia
+                previo[vecino] = actual
+
+                heapq.heappush(
+                    cola, (nueva_distancia, vecino)
+                )
+
     return dist, previo
 
 
@@ -93,12 +111,13 @@ def tabla_iteraciones(grafo, origen):
         if pivote is None:
             break
 
-        print(i, "|", dist, "|", pivote)
+        distancias = {nodo: -1 if dist[nodo] == float("inf") else dist[nodo] for nodo in nodos}
+
+        print(i, "|", distancias, "|", pivote)
 
         cerrados.add(pivote)
 
-        for vecino, atributos in grafo[pivote].items():
-            peso = atributos["weight"]
+        for vecino, peso in grafo[pivote].items():
             nueva_distancia = dist[pivote] + peso
 
             if vecino not in cerrados:
@@ -106,6 +125,108 @@ def tabla_iteraciones(grafo, origen):
                     dist[vecino] = nueva_distancia
                     previo[vecino] = pivote
 
+
+
+def bellman_ford(grafo, origen):
+    if origen not in grafo:
+        raise ValueError("Barrio de origen desconocido")
+
+    dist = {nodo: float("inf") for nodo in grafo}
+    previo = {origen: None}
+
+    dist[origen] = 0
+
+    # Relajar las aristas V-1 veces
+    for i in range(len(grafo) - 1):
+        cambiado = False
+
+        for actual in grafo:
+            if dist[actual] == float("inf"):
+                continue
+
+            for vecino, peso in grafo[actual].items():
+                nueva_distancia = dist[actual] + peso
+
+                if nueva_distancia < dist[vecino]:
+                    dist[vecino] = nueva_distancia
+                    previo[vecino] = actual
+                    cambiado = True
+
+        if not cambiado:
+            break
+
+    # Comprobar ciclos negativos
+    for actual in grafo:
+        if dist[actual] == float("inf"):
+            continue
+
+        for vecino, peso in grafo[actual].items():
+            if dist[actual] + peso < dist[vecino]:
+                raise ValueError("Ciclo negativo detectado")
+
+    return dist, previo
+
+
+def floyd_warshall(grafo):
+    nodos = list(grafo)
+    infinito = float("inf")
+
+    dist = {}
+    siguiente = {}
+
+    # Inicializar distancias
+    for i in nodos:
+        dist[i] = {}
+        siguiente[i] = {}
+
+        for j in nodos:
+            if i == j:
+                dist[i][j] = 0
+                siguiente[i][j] = j
+
+            elif j in grafo[i]:
+                dist[i][j] = grafo[i][j]
+                siguiente[i][j] = j
+
+            else:
+                dist[i][j] = infinito
+                siguiente[i][j] = None
+
+    # Buscar caminos mínimos
+    for k in nodos:
+        for i in nodos:
+            for j in nodos:
+                nueva = dist[i][k] + dist[k][j]
+
+                if nueva < dist[i][j]:
+                    dist[i][j] = nueva
+                    siguiente[i][j] = siguiente[i][k]
+
+    # Detectar ciclos negativos
+    for nodo in nodos:
+        if dist[nodo][nodo] < 0:
+            raise ValueError("Ciclo negativo detectado")
+
+    return dist, siguiente
+
+
+def camino_floyd(siguiente, origen, destino):
+    if origen not in siguiente:
+        raise ValueError("Barrio de origen desconocido")
+
+    if destino not in siguiente[origen]:
+        raise ValueError("Barrio de destino desconocido")
+
+    if siguiente[origen][destino] is None:
+        return []
+
+    ruta = [origen]
+
+    while origen != destino:
+        origen = siguiente[origen][destino]
+        ruta.append(origen)
+
+    return ruta
 
 
 if __name__ == "__main__":
