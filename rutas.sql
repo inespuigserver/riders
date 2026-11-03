@@ -1,10 +1,3 @@
--- ============================================================
---  RIDEREXPRESS · ampliación para la sesión 13: el mapa de barrios
---  Se carga DESPUÉS de delivery.sql:
---      sqlite3 delivery.db < delivery.sql
---      sqlite3 delivery.db < rutas.sql
---  Minutos en moto entre barrios vecinos (calles de doble sentido).
--- ============================================================
 
 PRAGMA foreign_keys = ON;
 
