@@ -1,4 +1,18 @@
 """rutas.py: el mapa como grafo, Dijkstra con camino, rider más cercano y pedidos de varios restaurantes."""
+# ---------------------------------------------------------------------------
+#
+#   - Dijkstra: el camino más corto desde UN barrio hasta todos los demás.
+#       Es rápido, pero solo funciona si todos los tiempos son positivos.
+#   - Bellman-Ford: lo mismo, pero más lento y más general: admite tiempos
+#       negativos (descuentos) y avisa si hay un "ciclo negativo" (una vuelta
+#       que ahorraría tiempo sin límite, algo imposible en la realidad).
+#   - Floyd-Warshall: calcula de una vez el camino más corto entre TODOS los
+#       pares de barrios y lo guarda en una tabla para consultarla después.
+#
+# En este mapa todos los tiempos son positivos, así que los tres dan el mismo
+# resultado.
+# ---------------------------------------------------------------------------
+
 import heapq
 from contextlib import closing
 from itertools import permutations
