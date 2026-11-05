@@ -16,6 +16,7 @@
 import heapq
 from contextlib import closing
 from itertools import permutations
+import networkx as nx
 from db import barrio_rider, get_conn
 
 
@@ -251,3 +252,11 @@ def sede_mas_cercana_a_cada_cliente(grafo, clientes, sedes):
         min_d, _ = min((dist_d[barrio], nombre) for nombre, barrio in sedes)
         resultado.append((cliente, sede, min_f, min_d))
     return resultado
+
+def cargar_grafo_nx():
+    """El mismo mapa de barrios, pero como grafo de NetworkX. No dibuja nada."""
+    G = nx.Graph()                       # Graph = no dirigido: cada tramo vale en los dos sentidos
+    with closing(get_conn()) as conn:
+        for t in conn.execute("SELECT origen, destino, minutos FROM tramo"):
+            G.add_edge(t["origen"], t["destino"], weight=t["minutos"])   # weight = minutos del tramo
+    return G

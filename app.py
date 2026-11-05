@@ -1,7 +1,7 @@
 """app.py: menú de RiderExpress. Solo habla con el usuario: pide datos y llama a los demás."""
 from datetime import date
 
-
+from mapa import dibujar_mapa
 from turno import planificar_turno
 from db import (DB_PATH, init_db, obtener_platos, datos_pedido, barrio_rider,
                 barrio_usuario, obtener_clientes, obtener_sedes)
@@ -144,6 +144,22 @@ def sedes_para_todos(grafo):
             grafo, clientes, obtener_sedes()):
         print(f"{cliente:<8}{barrios[cliente]:<13}{sede:<18}{min_f:>6}{min_d:>9}")
 
+def dibujar(grafo):
+    # Dibuja el mapa con NetworkX y matplotlib; si se da origen y destino, resalta la ruta
+    print("Barrios:", ", ".join(grafo))
+    origen = input("Origen (enter = solo el mapa): ")
+
+    recorrido = []
+    if origen:
+        destino = input("Destino: ")
+        if origen not in grafo or destino not in grafo:
+            print("Barrio desconocido")
+            return
+        minutos, recorrido = ruta_entre(grafo, origen, destino)
+        print(" -> ".join(recorrido), f"({minutos} min)")
+
+    archivo = input("Guardar como imagen, por ejemplo mapa.png (enter = no): ")
+    dibujar_mapa(recorrido, archivo or None)
 
 def main():
     if not DB_PATH.exists():
@@ -159,11 +175,12 @@ def main():
         "6": ("Comparar algoritmos en un pedido", lambda: comparar_ruta(grafo)),
         "7": ("De un cliente a todas las sedes", lambda: cliente_a_sedes(grafo)),
         "8": ("Sede más cercana de cada cliente", lambda: sedes_para_todos(grafo)),
-        "9": ("Salir", lambda: print("Saliendo del programa...")),
+        "9": ("Dibujar el mapa", lambda: dibujar(grafo)),
+        "10": ("Salir", lambda: print("Saliendo del programa...")),
     }
 
     eleccion = ""
-    while eleccion != "9":
+    while eleccion != "10":
         print("\n--- RIDEREXPRESS ---")
         for clave, (texto, _) in opciones.items():
             print(clave, texto)
