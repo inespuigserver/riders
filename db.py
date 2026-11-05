@@ -69,3 +69,29 @@ def barrio_rider(nombre):
     if fila is None:
         raise ValueError(f"Rider no encontrado: {nombre}")
     return fila["barrio"]
+
+# ---------------------------------------------------------------------------
+# SESIÓN 14: consultas que necesitan los nuevos casos de uso
+# ---------------------------------------------------------------------------
+
+def obtener_sedes():
+    """[(nombre, barrio)] de todos los restaurantes (las sedes)."""
+    with closing(get_conn()) as conn:
+        filas = conn.execute("SELECT nombre, barrio FROM restaurante ORDER BY nombre").fetchall()
+    return [(f["nombre"], f["barrio"]) for f in filas]
+
+
+def obtener_clientes():
+    """[(nombre, barrio)] de todos los usuarios."""
+    with closing(get_conn()) as conn:
+        filas = conn.execute("SELECT nombre, barrio FROM usuario ORDER BY id").fetchall()
+    return [(f["nombre"], f["barrio"]) for f in filas]
+
+
+def barrio_usuario(nombre):
+    """Barrio donde vive un usuario."""
+    with closing(get_conn()) as conn:
+        fila = conn.execute("SELECT barrio FROM usuario WHERE nombre = ?", (nombre,)).fetchone()
+    if fila is None:
+        raise ValueError(f"Cliente no encontrado: {nombre}")
+    return fila["barrio"]

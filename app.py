@@ -1,10 +1,13 @@
 """app.py: menú de RiderExpress. Solo habla con el usuario: pide datos y llama a los demás."""
 from datetime import date
 
-from db import DB_PATH, init_db, obtener_platos, datos_pedido, barrio_rider
-from pedidos import crear_pedido
-from rutas import cargar_grafo, ruta_entre, tiempo_entrega, ruta_voraz, ruta_fuerza_bruta
+
 from turno import planificar_turno
+from db import (DB_PATH, init_db, obtener_platos, datos_pedido, barrio_rider,
+                barrio_usuario, obtener_clientes, obtener_sedes)
+from pedidos import crear_pedido
+from rutas import (cargar_grafo, ruta_entre, tiempo_entrega, ruta_voraz, ruta_fuerza_bruta,
+                   comparar_algoritmos, minutos_a_sedes, sede_mas_cercana_a_cada_cliente)
 
 
 def leer_entero(texto):
@@ -82,6 +85,66 @@ def ruta(grafo):
     print(" → ".join(recorrido), f"({minutos} min)")
 
 
+def comparar_ruta(grafo):
+    # CASO 1: la ruta restaurante -> cliente de un pedido, calculada con los 3 algoritmos
+    pedido_id = leer_entero("Id del pedido: ")
+    cliente, restaurantes = datos_pedido(pedido_id)
+
+    if cliente is None:
+        print("Ese pedido no existe")
+        return
+    if len(restaurantes) != 1:
+        print("Esta opción es para pedidos de un solo restaurante")
+        return
+
+    origen = restaurantes[0]["barrio"]
+    destino = cliente["barrio"]
+    resultados = comparar_algoritmos(grafo, origen, destino)
+
+    print(f"Restaurante ({origen}) -> cliente ({destino})")
+    for algoritmo, (minutos, recorrido) in resultados.items():
+        print(f"{algoritmo:<15} {minutos:>3} min   {' -> '.join(recorrido)}")
+
+    # Los tres tienen que dar los mismos minutos (aquí no hay pesos negativos)
+    tiempos = {minutos for minutos, _ in resultados.values()}
+    print("Los tres algoritmos coinciden" if len(tiempos) == 1 else "¡Los minutos no coinciden!")
+
+
+def cliente_a_sedes(grafo):
+    # CASO 2: de un cliente a TODAS las sedes (restaurantes)
+    nombre = input("Nombre del cliente: ")
+    try:
+        barrio = barrio_usuario(nombre)
+    except ValueError as e:
+        print(e)
+        return
+
+    sedes = obtener_sedes()
+    tabla = minutos_a_sedes(grafo, barrio, sedes)
+
+    print(f"\nMinutos desde {nombre} ({barrio}) hasta cada sede:")
+    print(f"{'Sede':<12}{'Dijkstra':>10}{'Bellman-F':>11}{'Floyd':>7}")
+    for sede, _ in sedes:
+        print(f"{sede:<12}{tabla['Dijkstra'][sede]:>10}{tabla['Bellman-Ford'][sede]:>11}"
+              f"{tabla['Floyd-Warshall'][sede]:>7}")
+
+    # La sede más cercana y la ruta hasta ella (desempata el nombre)
+    minutos, sede = min((tabla["Dijkstra"][nombre_sede], nombre_sede) for nombre_sede, _ in sedes)
+    barrio_sede = dict(sedes)[sede]
+    _, recorrido = ruta_entre(grafo, barrio, barrio_sede)
+    print(f"La más cercana: {sede} ({minutos} min): {' -> '.join(recorrido)}")
+
+
+def sedes_para_todos(grafo):
+    # CASO 3 (idea propia): sede más cercana de cada cliente, con Floyd calculado una sola vez
+    print(f"{'Cliente':<8}{'Barrio':<13}{'Sede más cercana':<18}{'Floyd':>6}{'Dijkstra':>9}")
+    clientes = obtener_clientes()
+    barrios = dict(clientes)
+    for cliente, sede, min_f, min_d in sede_mas_cercana_a_cada_cliente(
+            grafo, clientes, obtener_sedes()):
+        print(f"{cliente:<8}{barrios[cliente]:<13}{sede:<18}{min_f:>6}{min_d:>9}")
+
+
 def main():
     if not DB_PATH.exists():
         init_db()
@@ -93,11 +156,14 @@ def main():
         "3": ("Rider para un pedido", lambda: asignar(grafo)),
         "4": ("Ruta entre dos barrios", lambda: ruta(grafo)),
         "5": ("Planificar el turno", lambda: print(planificar_turno())),
-        "6": ("Salir", lambda: print("Saliendo del programa...")),
+        "6": ("Comparar algoritmos en un pedido", lambda: comparar_ruta(grafo)),
+        "7": ("De un cliente a todas las sedes", lambda: cliente_a_sedes(grafo)),
+        "8": ("Sede más cercana de cada cliente", lambda: sedes_para_todos(grafo)),
+        "9": ("Salir", lambda: print("Saliendo del programa...")),
     }
 
     eleccion = ""
-    while eleccion != "6":
+    while eleccion != "9":
         print("\n--- RIDEREXPRESS ---")
         for clave, (texto, _) in opciones.items():
             print(clave, texto)

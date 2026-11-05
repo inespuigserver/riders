@@ -118,3 +118,122 @@ def tabla_iteraciones(grafo, origen):
         for vecino, peso in grafo[pivote].items():
             if vecino not in cerrados and dist[pivote] + peso < dist[vecino]:
                 dist[vecino] = dist[pivote] + peso
+
+# ---------------------------------------------------------------------------
+# SESIÓN 14: Bellman-Ford y Floyd-Warshall
+# ---------------------------------------------------------------------------
+
+def bellman_ford(grafo, origen):
+    """Camino mínimo desde origen a todos los barrios. Admite pesos negativos.
+    Devuelve (dist, previo, ciclo_negativo)."""
+    if origen not in grafo:
+        raise ValueError(f"Barrio desconocido: {origen}")
+
+    # Bellman-Ford trabaja con una LISTA DE ARISTAS, no con el diccionario de vecinos.
+    # Pasamos {u: {v: peso}} a [(u, v, peso), ...]. Como el grafo guarda las dos
+    # direcciones de cada tramo, cada calle aparece dos veces (ida y vuelta).
+    aristas = [(u, v, peso) for u in grafo for v, peso in grafo[u].items()]
+
+    # Paso 1: inicialización. Origen a 0 y el resto a infinito (igual que en Dijkstra).
+    dist = {nodo: float("inf") for nodo in grafo}
+    previo = {origen: None}              # para reconstruir la ruta con camino()
+    dist[origen] = 0
+
+    # Paso 2: relajar TODAS las aristas V-1 veces. Un camino mínimo sin ciclos tiene
+    # como mucho V-1 aristas, y cada pasada asegura una arista más del camino.
+    for _ in range(len(grafo) - 1):
+        hubo_cambio = False
+        for u, v, peso in aristas:
+            if dist[u] + peso < dist[v]:     # relajar: ¿pasar por u mejora el camino a v?
+                dist[v] = dist[u] + peso
+                previo[v] = u
+                hubo_cambio = True
+        if not hubo_cambio:                  # si una pasada no mejora nada, ya hemos acabado
+            break
+
+    # Paso 3: una pasada más. Si TODAVÍA se puede mejorar algo, hay un ciclo negativo
+    # (se podría dar vueltas rebajando el coste sin parar) y no existe un camino mínimo.
+    ciclo_negativo = any(dist[u] + peso < dist[v] for u, v, peso in aristas)
+    return dist, previo, ciclo_negativo
+
+
+def floyd_warshall(grafo):
+    """Distancias mínimas entre TODOS los pares de barrios.
+    Devuelve (dist, siguiente): dist[i][j] = minutos y siguiente[i][j] = primer paso de i hacia j."""
+    nodos = list(grafo)
+
+    # La "matriz" son diccionarios de diccionarios para poder usar los nombres de barrio.
+    # Empieza en infinito, con 0 de un barrio a sí mismo y el peso de cada tramo directo.
+    dist = {i: {j: float("inf") for j in nodos} for i in nodos}
+    siguiente = {i: {j: None for j in nodos} for i in nodos}
+    for i in nodos:
+        dist[i][i] = 0
+        for j, peso in grafo[i].items():
+            dist[i][j] = peso
+            siguiente[i][j] = j              # de i a j, el primer paso es ir directo a j
+
+    # Idea: probar cada barrio k como PARADA INTERMEDIA. Si ir de i a j pasando por k
+    # es más corto que lo que ya teníamos, nos quedamos con ese camino.
+    # El bucle de k tiene que ser el de fuera: así, al llegar a k, ya se han probado
+    # todos los caminos que usan solo los barrios anteriores como paradas.
+    for k in nodos:
+        for i in nodos:
+            for j in nodos:
+                if dist[i][k] + dist[k][j] < dist[i][j]:
+                    dist[i][j] = dist[i][k] + dist[k][j]
+                    siguiente[i][j] = siguiente[i][k]   # para ir a j, empiezo yendo hacia k
+    return dist, siguiente
+
+
+def camino_floyd(siguiente, origen, destino):
+    """Reconstruye la ruta con la tabla siguiente (como camino(), pero hacia delante)."""
+    if origen != destino and siguiente[origen][destino] is None:
+        return []                            # no hay ruta entre esos dos barrios
+    ruta = [origen]
+    while origen != destino:
+        origen = siguiente[origen][destino]  # damos el primer paso y repetimos desde ahí
+        ruta.append(origen)
+    return ruta
+
+
+def comparar_algoritmos(grafo, origen, destino):
+    """CASO 1: la misma ruta calculada con los tres algoritmos.
+    Devuelve {algoritmo: (minutos, ruta)}."""
+    dist_d, previo_d = dijkstra(grafo, origen)
+    dist_b, previo_b, _ = bellman_ford(grafo, origen)
+    dist_f, siguiente_f = floyd_warshall(grafo)
+    return {
+        "Dijkstra": (dist_d[destino], camino(previo_d, destino)),
+        "Bellman-Ford": (dist_b[destino], camino(previo_b, destino)),
+        "Floyd-Warshall": (dist_f[origen][destino], camino_floyd(siguiente_f, origen, destino)),
+    }
+
+
+def minutos_a_sedes(grafo, barrio_cliente, sedes):
+    """CASO 2: minutos desde el barrio de un cliente hasta cada sede, con los tres algoritmos.
+    sedes = [(nombre, barrio)]. Devuelve {algoritmo: {sede: minutos}}."""
+    # Como el grafo no es dirigido, UN solo Dijkstra (o Bellman-Ford) desde el cliente
+    # da la distancia a todas las sedes a la vez. Floyd ya las tiene todas calculadas.
+    dist_d, _ = dijkstra(grafo, barrio_cliente)
+    dist_b, _, _ = bellman_ford(grafo, barrio_cliente)
+    dist_f, _ = floyd_warshall(grafo)
+    return {
+        "Dijkstra": {nombre: dist_d[barrio] for nombre, barrio in sedes},
+        "Bellman-Ford": {nombre: dist_b[barrio] for nombre, barrio in sedes},
+        "Floyd-Warshall": {nombre: dist_f[barrio_cliente][barrio] for nombre, barrio in sedes},
+    }
+
+
+def sede_mas_cercana_a_cada_cliente(grafo, clientes, sedes):
+    """CASO 3 (idea propia): la sede más cercana de TODOS los clientes de golpe.
+    clientes y sedes = [(nombre, barrio)]. Devuelve [(cliente, sede, min_floyd, min_dijkstra)]."""
+    # Floyd se calcula UNA vez y después cada cliente es solo una consulta a la matriz.
+    # Con Dijkstra hay que repetir el algoritmo para cada cliente.
+    dist_f, _ = floyd_warshall(grafo)
+    resultado = []
+    for cliente, barrio_cliente in clientes:
+        min_f, sede = min((dist_f[barrio_cliente][barrio], nombre) for nombre, barrio in sedes)
+        dist_d, _ = dijkstra(grafo, barrio_cliente)
+        min_d, _ = min((dist_d[barrio], nombre) for nombre, barrio in sedes)
+        resultado.append((cliente, sede, min_f, min_d))
+    return resultado
