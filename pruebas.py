@@ -48,3 +48,44 @@ print("Con un peso negativo pero SIN ciclo (A→B 4, A→C 2, C→B -1):")
 sin_ciclo = {"A": {"B": 4, "C": 2}, "B": {}, "C": {"B": -1}}
 dist_n, _, ciclo_n = bellman_ford(sin_ciclo, "A")
 print("   distancias:", dist_n, "| ciclo negativo:", ciclo_n)
+
+# ---------------------------------------------------------------------------
+# PARTE 5.2: CRUD de usuarios (crea uno de prueba y lo borra, la BD queda igual)
+# ---------------------------------------------------------------------------
+from db import crear_usuario, listar_usuarios, recargar_saldo, borrar_usuario
+
+print()
+print("--- CRUD de usuarios ---")
+nuevo = crear_usuario("Prueba", "Centro", 10)
+print("Creado con id", nuevo)
+recargar_saldo(nuevo, 25)
+print("Tras recargar 25 €:", [tuple(f) for f in listar_usuarios() if f["id"] == nuevo])
+borrar_usuario(nuevo)
+print("Tras borrarlo, usuarios:", len(listar_usuarios()))
+
+try:
+    borrar_usuario(1)                      # Carlos tiene pedidos
+except ValueError as e:
+    print("Borrar a Carlos ->", e)
+
+# ---------------------------------------------------------------------------
+# PARTE 3: ejecuta todas las consultas de consultas.sql y enseña el resultado
+# ---------------------------------------------------------------------------
+from contextlib import closing
+from db import BASE_DIR, get_conn
+
+print()
+print("=" * 70)
+print("CONSULTAS DE LA PARTE 3")
+print("=" * 70)
+with closing(get_conn()) as conn:
+    for trozo in (BASE_DIR / "consultas.sql").read_text(encoding="utf-8").split(";"):
+        lineas = trozo.strip().splitlines()
+        titulo = next((l for l in lineas if l.startswith("-- ") and l[3].isdigit() or l.startswith("-- RETO")), "")
+        sql = "\n".join(l for l in lineas if not l.startswith("--")).strip()
+        if not sql:
+            continue
+        print()
+        print(titulo.replace("-- ", "", 1))
+        for fila in conn.execute(sql).fetchall():
+            print("   ", tuple(fila))

@@ -91,3 +91,7 @@ línea con los minutos en moto.
   por datos repetidos.
 - **Dibujo separado de los algoritmos**: `mapa.py` es el único fichero que usa
   matplotlib, así `rutas.py` solo calcula y no abre ventanas.
+
+| `esquema.sql` | Las tablas de la base de datos (con sus claves y restricciones) |
+| `datos.sql` | Los datos: usuarios, riders, platos, pedidos, repartos, restaurantes y el mapa de barrios |
+| `consultas.sql` | Las 10 preguntas de la Parte 3 y el reto de la tarjeta rechazada |

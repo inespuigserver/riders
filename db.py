@@ -17,7 +17,7 @@ def get_conn():
 def init_db():
     """Crea la base de datos: primero delivery.sql y después rutas.sql."""
     with closing(get_conn()) as conn:
-        for archivo in ("delivery.sql", "rutas.sql"):
+         for archivo in ("esquema.sql", "datos.sql"):
             conn.executescript((BASE_DIR / archivo).read_text(encoding="utf-8"))
 
 
@@ -95,3 +95,48 @@ def barrio_usuario(nombre):
     if fila is None:
         raise ValueError(f"Cliente no encontrado: {nombre}")
     return fila["barrio"]
+
+# ---------------------------------------------------------------------------
+# CRUD de usuarios (Parte 5.2): crear, listar, recargar saldo y borrar
+# Los datos van SIEMPRE con ? y nunca pegados en el texto (así no hay inyección SQL).
+# ---------------------------------------------------------------------------
+
+def crear_usuario(nombre, barrio, saldo):
+    """Crea un usuario y devuelve su id."""
+    with closing(get_conn()) as conn, conn:       # closing cierra; conn hace commit o rollback
+        cur = conn.execute(
+            "INSERT INTO usuario (nombre, barrio, saldo) VALUES (?, ?, ?)",
+            (nombre, barrio, saldo),
+        )
+        return cur.lastrowid                      # el id que SQLite le ha dado
+
+
+def listar_usuarios():
+    """Todos los usuarios, como lista de filas (id, nombre, barrio, saldo)."""
+    with closing(get_conn()) as conn:
+        return conn.execute(
+            "SELECT id, nombre, barrio, saldo FROM usuario ORDER BY id"
+        ).fetchall()
+
+
+def recargar_saldo(usuario_id, euros):
+    """Suma euros al monedero de un usuario."""
+    if euros <= 0:
+        raise ValueError("La recarga debe ser mayor que cero")
+    with closing(get_conn()) as conn, conn:
+        cur = conn.execute(
+            "UPDATE usuario SET saldo = saldo + ? WHERE id = ?", (euros, usuario_id)
+        )
+        if cur.rowcount == 0:                     # rowcount = cuántas filas ha cambiado
+            raise ValueError("Usuario inexistente")
+
+
+def borrar_usuario(usuario_id):
+    """Borra un usuario. No se puede si ya ha hecho pedidos (los protege la clave ajena)."""
+    try:
+        with closing(get_conn()) as conn, conn:
+            cur = conn.execute("DELETE FROM usuario WHERE id = ?", (usuario_id,))
+            if cur.rowcount == 0:
+                raise ValueError("Usuario inexistente")
+    except sqlite3.IntegrityError as e:           # la FK de pedido.usuario_id lo impide
+        raise ValueError("No se puede borrar: el usuario tiene pedidos") from e
