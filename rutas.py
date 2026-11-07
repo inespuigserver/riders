@@ -35,22 +35,32 @@ def dijkstra(grafo, origen):
     if origen not in grafo:
         raise ValueError(f"Barrio desconocido: {origen}")
 
+    # dist[barrio] = los minutos más cortos que conocemos desde el origen hasta ese barrio.
+    # Al empezar no sabemos llegar a ninguno, así que todos valen infinito...
     dist = {nodo: float("inf") for nodo in grafo}
+    # previo[barrio] = desde qué barrio se llega a él por el camino más corto.
+    # Sirve después para reconstruir la ruta yendo hacia atrás (función camino).
     previo = {origen: None}
-    dist[origen] = 0
+    dist[origen] = 0                         # ...menos el origen: ya estamos en él (0 minutos)
+
+    # cola = barrios pendientes de visitar, como (minutos, barrio). heapq la mantiene
+    # de forma que heappop saca siempre el que tiene MENOS minutos.
     cola = [(0, origen)]
+    # cerrados = barrios cuya distancia ya es definitiva: no se puede mejorar.
     cerrados = set()
 
-    while cola:
-        d, u = heapq.heappop(cola)           # el pivote: el más cercano sin cerrar
-        if u in cerrados:
+    while cola:                              # mientras queden barrios por visitar
+        d, u = heapq.heappop(cola)           # el pivote: el barrio más cercano sin cerrar
+        if u in cerrados:                    # entrada antigua (peor) de un barrio ya cerrado: se ignora
             continue
-        cerrados.add(u)
-        for v, peso in grafo[u].items():
-            if d + peso < dist[v]:           # relajar la arista u -> v
-                dist[v] = d + peso
-                previo[v] = u
-                heapq.heappush(cola, (dist[v], v))
+        cerrados.add(u)                      # lo cerramos: d ya es su mejor distancia posible
+        for v, peso in grafo[u].items():     # miramos cada vecino v de u (peso = minutos del tramo)
+            if d + peso < dist[v]:           # RELAJAR: ¿ir a v pasando por u es más corto que lo que sabíamos?
+                dist[v] = d + peso           # sí: apuntamos la nueva mejor distancia a v
+                previo[v] = u                # ...y que se llega a v desde u
+                heapq.heappush(cola, (dist[v], v))   # v entra en la cola con su nueva distancia
+    # Por qué funciona: con tiempos positivos, el barrio más cercano sin cerrar no puede
+    # mejorarse dando un rodeo (cualquier rodeo suma más minutos), así que se puede cerrar.
     return dist, previo
 
 
