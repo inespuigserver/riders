@@ -74,19 +74,30 @@ def camino(previo, destino):
 
 
 def ruta_entre(grafo, origen, destino):
-    """(minutos, ruta) entre dos barrios."""
+    if destino not in grafo:
+        raise ValueError("Barrio de destino desconocido")
     dist, previo = dijkstra(grafo, origen)
+    if dist[destino] == float("inf"):
+        raise ValueError("No existe una ruta entre esos barrios")
     return dist[destino], camino(previo, destino)
 
 
 def rider_mas_cercano(grafo, barrio_restaurante):
-    """(minutos, nombre) del rider que antes llega al restaurante."""
-    dist, _ = dijkstra(grafo, barrio_restaurante)   # un solo Dijkstra: el grafo no es dirigido
+    dist, _ = dijkstra(grafo, barrio_restaurante)
+
     with closing(get_conn()) as conn:
         riders = conn.execute(
             "SELECT nombre, barrio FROM rider WHERE barrio IS NOT NULL"
         ).fetchall()
-    return min((dist[r["barrio"]], r["nombre"]) for r in riders)
+    disponibles = []
+    for r in riders:
+        barrio = r["barrio"]
+
+        if barrio in dist and dist[barrio] != float("inf"):
+            disponibles.append((dist[barrio], r["nombre"]))
+    if not disponibles:
+        raise ValueError("No hay riders disponibles")
+    return min(disponibles)
 
 
 def tiempo_entrega(grafo, barrio_restaurante, barrio_cliente):
