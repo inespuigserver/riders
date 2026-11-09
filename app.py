@@ -52,9 +52,14 @@ def asignar(grafo):
         return
 
     if len(restaurantes) == 1:
-        rider, m_rider, m_cliente, total, recorrido = tiempo_entrega(
-            grafo, restaurantes[0]["barrio"], cliente["barrio"]
-        )
+        try:
+            rider, m_rider, m_cliente, total, recorrido = tiempo_entrega(
+                grafo, restaurantes[0]["barrio"], cliente["barrio"]
+            )
+        except (ValueError, KeyError) as e:
+            print("No se pudo calcular el reparto:", e)
+            return
+
         print(f"Lo recoge {rider}: {m_rider} min hasta el restaurante + {m_cliente} min hasta el cliente")
         print(f"Tiempo total: {total} min")
         print("Ruta:", " → ".join(recorrido))
@@ -187,4 +192,5 @@ def main():
         eleccion = input("Elige una opción: ")
         opciones.get(eleccion, ("", lambda: print("Opción no válida")))[1]()
 
-main()
+if __name__ == "__main__":
+    main()

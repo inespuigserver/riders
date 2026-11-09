@@ -104,6 +104,10 @@ def tiempo_entrega(grafo, barrio_restaurante, barrio_cliente):
     """(rider, min hasta restaurante, min hasta cliente, total, ruta rider -> restaurante -> cliente)."""
     m_rider, rider = rider_mas_cercano(grafo, barrio_restaurante)
     dist, previo = dijkstra(grafo, barrio_restaurante)
+    if barrio_cliente not in grafo:
+        raise ValueError("Barrio del cliente desconocido")
+    if dist[barrio_cliente] == float("inf"):
+        raise ValueError("No existe una ruta hasta el cliente")
     ida = camino(previo, barrio_rider(rider))[::-1]
     vuelta = camino(previo, barrio_cliente)
     return rider, m_rider, dist[barrio_cliente], m_rider + dist[barrio_cliente], ida + vuelta[1:]
